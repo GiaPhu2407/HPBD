@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Happy Birthday</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #000;
+        overflow: hidden;
+        min-height: 100vh;
+      }
+
+      .buttons {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        display: flex;
+        gap: 20px;
+      }
+
+      .btn {
+        padding: 10px 20px;
+        background: linear-gradient(45deg, #ff3366, #ff6b6b);
+        color: white;
+        text-decoration: none;
+        border-radius: 25px;
+        backdrop-filter: blur(5px);
+        transition: all 0.3s;
+        cursor: pointer;
+        border: none;
+        font-size: 16px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 0 15px rgba(255, 51, 102, 0.5);
+      }
+
+      .btn:before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.2),
+          transparent
+        );
+        transition: 0.5s;
+      }
+
+      .btn:hover:before {
+        left: 100%;
+      }
+
+      .btn:hover {
+        transform: scale(1.05);
+        background: linear-gradient(45deg, #ff6b6b, #ff3366);
+        box-shadow: 0 0 20px rgba(255, 51, 102, 0.7);
+      }
+
+      .cover {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        max-height: 200px;
+        border-radius: 10px;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.5s;
+      }
+
+      canvas#birthday {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+      }
+
+      body.active .cover {
+        opacity: 1;
+      }
+
+      .birthday-text {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1000;
+        text-align: center;
+        width: 100%;
+        display: none;
+      }
+
+      .birthday-text span {
+        font-size: 60px;
+        color: #fff;
+        text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000, 0 0 30px #ff0000;
+        opacity: 0;
+        display: inline-block;
+        transform: translateY(50px);
+        transition: all 0.5s ease;
+        font-family: Arial, sans-serif;
+        margin: 0 5px;
+        position: relative;
+      }
+
+      .birthday-text.active {
+        display: block;
+      }
+
+      .birthday-text.active span {
+        animation: floatBubble 2s ease-in-out infinite;
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @keyframes floatBubble {
+        0%,
+        100% {
+          transform: translateY(0) rotate(0deg);
+        }
+        50% {
+          transform: translateY(-20px) rotate(5deg);
+        }
+      }
+
+      .bubble {
+        position: absolute;
+        background: radial-gradient(
+          circle at 30% 30%,
+          rgba(255, 255, 255, 0.8),
+          rgba(255, 255, 255, 0.1)
+        );
+        border-radius: 50%;
+        pointer-events: none;
+        animation: rise 4s ease-in infinite;
+      }
+
+      @keyframes rise {
+        0% {
+          transform: translateY(0) scale(1);
+          opacity: 0;
+        }
+        50% {
+          opacity: 0.5;
+        }
+        100% {
+          transform: translateY(-100vh) scale(2);
+          opacity: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="buttons">
+      <a href="index.html" class="btn btn-bir">Sinh nhật</a>
+      <a href="timeline.html" class="btn btn-timeline">Dòng thời gian</a>
+      <a href="gallery.html" class="btn btn-gallery">Ảnh kĩ niệm</a>
+    </div>
+
+    <div class="birthday-text">
+      <span>H</span>
+      <span>A</span>
+      <span>P</span>
+      <span>P</span>
+      <span>Y</span>
+      <span style="margin-left: 20px">B</span>
+      <span>I</span>
+      <span>R</span>
+      <span>T</span>
+      <span>H</span>
+      <span>D</span>
+      <span>A</span>
+      <span>Y</span>
+      <span>!</span>
+    </div>
+
+    <canvas id="birthday"></canvas>
+    <audio id="player" loop>
+      <source src="./music/music.mp3" type="audio/mp3" />
+    </audio>
+
+    <script>
+      const PI2 = Math.PI * 2;
+      const random = (min, max) => (Math.random() * (max - min + 1) + min) | 0;
+      const timestamp = (_) => new Date().getTime();
+
+      class Birthday {
+        constructor() {
+          this.resize();
+          this.fireworks = [];
+          this.counter = 0;
+        }
+
+        resize() {
+          this.width = canvas.width = window.innerWidth;
+          let center = (this.width / 2) | 0;
+          this.spawnA = (center - center / 4) | 0;
+          this.spawnB = (center + center / 4) | 0;
+          this.height = canvas.height = window.innerHeight;
+          this.spawnC = this.height * 0.1;
+          this.spawnD = this.height * 0.5;
+        }
+
+        onClick(evt) {
+          let x = evt.clientX || (evt.touches && evt.touches[0].pageX);
+          let y = evt.clientY || (evt.touches && evt.touches[0].pageY);
+          let count = random(3, 5);
+          for (let i = 0; i < count; i++) {
+            this.fireworks.push(
+              new Firework(
+                random(this.spawnA, this.spawnB),
+                this.height,
+                x,
+                y,
+                random(0, 260),
+                random(30, 110)
+              )
+            );
+          }
+          this.counter = -1;
+        }
+
+        update(delta) {
+          ctx.globalCompositeOperation = "hard-light";
+          ctx.fillStyle = `rgba(20,20,20,${7 * delta})`;
+          ctx.fillRect(0, 0, this.width, this.height);
+
+          ctx.globalCompositeOperation = "lighter";
+          for (let firework of this.fireworks) firework.update(delta);
+
+          this.counter += delta * 3;
+          if (this.counter >= 1) {
+            this.fireworks.push(
+              new Firework(
+                random(this.spawnA, this.spawnB),
+                this.height,
+                random(0, this.width),
+                random(this.spawnC, this.spawnD),
+                random(0, 360),
+                random(30, 110)
+              )
+            );
+            this.counter = 0;
+          }
+
+          if (this.fireworks.length > 1000) {
+            this.fireworks = this.fireworks.filter(
+              (firework) => !firework.dead
+            );
+          }
+        }
+      }
+
+      class Firework {
+        constructor(x, y, targetX, targetY, shade, offsprings) {
+          this.dead = false;
+          this.offsprings = offsprings;
+          this.x = x;
+          this.y = y;
+          this.targetX = targetX;
+          this.targetY = targetY;
+          this.shade = shade;
+          this.history = [];
+        }
+
+        update(delta) {
+          if (this.dead) return;
+
+          let xDiff = this.targetX - this.x;
+          let yDiff = this.targetY - this.y;
+          if (Math.abs(xDiff) > 3 || Math.abs(yDiff) > 3) {
+            this.x += xDiff * 2 * delta;
+            this.y += yDiff * 2 * delta;
+            this.history.push({ x: this.x, y: this.y });
+            if (this.history.length > 20) this.history.shift();
+          } else {
+            if (this.offsprings && !this.madeChilds) {
+              let babies = this.offsprings / 2;
+              for (let i = 0; i < babies; i++) {
+                let targetX =
+                  (this.x + this.offsprings * Math.cos((PI2 * i) / babies)) | 0;
+                let targetY =
+                  (this.y + this.offsprings * Math.sin((PI2 * i) / babies)) | 0;
+                birthday.fireworks.push(
+                  new Firework(this.x, this.y, targetX, targetY, this.shade, 0)
+                );
+              }
+            }
+            this.madeChilds = true;
+            this.history.shift();
+          }
+
+          if (this.history.length === 0) this.dead = true;
+          else if (this.offsprings) {
+            for (let i = 0; this.history.length > i; i++) {
+              let point = this.history[i];
+              ctx.beginPath();
+              ctx.fillStyle = "hsl(" + this.shade + ",100%," + i + "%)";
+              ctx.arc(point.x, point.y, 1, 0, PI2, false);
+              ctx.fill();
+            }
+          } else {
+            ctx.beginPath();
+            ctx.fillStyle = "hsl(" + this.shade + ",100%,50%)";
+            ctx.arc(this.x, this.y, 1, 0, PI2, false);
+            ctx.fill();
+          }
+        }
+      }
+
+      let canvas, ctx, birthday;
+      let isAnimating = false;
+
+      document.addEventListener("DOMContentLoaded", () => {
+        canvas = document.getElementById("birthday");
+        ctx = canvas.getContext("2d");
+        birthday = new Birthday();
+
+        const player = document.getElementById("player");
+        const btnBir = document.querySelector(".btn-bir");
+        const birthdayText = document.querySelector(".birthday-text");
+        const letters = birthdayText.querySelectorAll("span");
+
+        window.onresize = () => birthday.resize();
+        canvas.onclick = (evt) => birthday.onClick(evt);
+        canvas.ontouchstart = (evt) => birthday.onClick(evt);
+
+        let then = timestamp();
+
+        function createBubble(letter) {
+          const bubble = document.createElement("div");
+          bubble.className = "bubble";
+          const size = Math.random() * 20 + 10;
+          bubble.style.width = `${size}px`;
+          bubble.style.height = `${size}px`;
+          bubble.style.left = `${letter.offsetLeft + Math.random() * 20}px`;
+          bubble.style.top = `${letter.offsetTop + Math.random() * 20}px`;
+          document.body.appendChild(bubble);
+
+          setTimeout(() => {
+            bubble.remove();
+          }, 4000);
+        }
+
+        function animateText() {
+          birthdayText.classList.add("active");
+          letters.forEach((letter, index) => {
+            setTimeout(() => {
+              letter.style.transition = "all 0.5s ease";
+              letter.style.opacity = "1";
+              letter.style.transform = "translateY(0)";
+
+              // Create bubbles periodically for each letter
+              setInterval(() => {
+                if (Math.random() > 0.7) {
+                  createBubble(letter);
+                }
+              }, 2000);
+            }, index * 100);
+          });
+        }
+
+        function loop() {
+          if (!isAnimating) return;
+
+          requestAnimationFrame(loop);
+          let now = timestamp();
+          let delta = now - then;
+          then = now;
+          birthday.update(delta / 1000);
+        }
+
+        btnBir.addEventListener("click", (e) => {
+          e.preventDefault();
+          document.body.classList.add("active");
+          player.play();
+
+          if (!isAnimating) {
+            isAnimating = true;
+            then = timestamp();
+            loop();
+
+            // Initial fireworks
+            for (let i = 0; i < 5; i++) {
+              birthday.fireworks.push(
+                new Firework(
+                  random(birthday.spawnA, birthday.spawnB),
+                  birthday.height,
+                  random(0, birthday.width),
+                  random(birthday.spawnC, birthday.spawnD),
+                  random(0, 360),
+                  random(30, 110)
+                )
+              );
+            }
+            animateText();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
